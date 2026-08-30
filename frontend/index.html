@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Real Estate NFT — RES v2</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box }
+      body {
+        margin: 0; background: #f4f7fb; color: #24292f;
+        font-family: Vazirmatn, Tahoma, sans-serif; font-size: 14px;
+      }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px }
+
+      header { text-align: center; margin-bottom: 18px }
+      h1 { font-size: 20px; color: #0b5cad; margin: 0 0 6px }
+      .meta { font-size: 12px; color: #656d76 }
+      .mono { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, Consolas, monospace }
+      .badges { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 8px }
+      .badge { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700 }
+      .badge.role { background: #e7f1fb; color: #0b5cad; border: 1px solid #b6d4f0 }
+      .badge.wallet { background: #e6f7ec; color: #2b8a3e; border: 1px solid #b2e2c4 }
+      .badge.wallet.bad { background: #fdecec; color: #c92a2a; border-color: #f5c2c2 }
+      select.acct { font-size: 11px; padding: 4px 8px; border-radius: 8px; border: 1px solid #d0d7de; max-width: 100% }
+
+      /* ── ویجت کیف پول (اتصال/دراپ‌داون آدرس) ── */
+      .wdrop { position: relative; display: inline-block }
+      .btn-connect, .wbtn {
+        padding: 5px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
+        cursor: pointer; font-family: inherit; border: 1px solid #b2e2c4;
+        background: #e6f7ec; color: #2b8a3e;
+      }
+      .btn-connect:hover { filter: brightness(.97) }
+      .wbtn { direction: ltr }
+      .wmenu {
+        position: absolute; top: calc(100% + 6px); left: 0; min-width: 190px; z-index: 50;
+        background: #fff; border: 1px solid #dbe4ee; border-radius: 10px;
+        box-shadow: 0 6px 18px rgba(20,40,80,.14); padding: 6px; display: none;
+      }
+      .wmenu.open { display: block }
+      .wmenu button {
+        display: flex; gap: 8px; align-items: center; width: 100%; text-align: right;
+        background: none; border: none; border-radius: 8px; padding: 8px 10px;
+        font-size: 13px; font-family: inherit; cursor: pointer; color: #24292f;
+      }
+      .wmenu button:hover { background: #f0f6fc }
+      .wmenu button.danger { color: #c92a2a }
+      .wmenu .pname { font-weight: 700 }
+
+      nav.tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px }
+      nav.tabs button {
+        border: 1px solid #d0d7de; background: #fff; color: #57606a; border-radius: 999px;
+        padding: 8px 26px; font-weight: 700; cursor: pointer; font-size: 14px;
+        font-family: inherit;
+      }
+      nav.tabs button.active { background: #0b5cad; border-color: #0b5cad; color: #fff }
+
+      .pane { display: none } .pane.show { display: block }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px }
+      .panel {
+        background: #fff; border: 1px solid #dbe4ee; border-radius: 12px;
+        padding: 16px; box-shadow: 0 1px 3px rgba(20,40,80,.05);
+        display: flex; flex-direction: column;
+      }
+      .panel.wide { grid-column: 1 / -1 }
+      .panel.span2 { grid-column: span 2 }
+      .panel h2 { font-size: 14px; color: #0b5cad; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 2px solid #eef3f9 }
+      .hint { font-size: 11.5px; color: #8b949e; margin: 0 0 10px; line-height: 1.7 }
+
+      .field { margin-bottom: 10px }
+      .field label { display: block; font-size: 12px; color: #57606a; margin-bottom: 4px }
+      input, select {
+        width: 100%; padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 8px;
+        font-size: 13px; font-family: inherit; background: #fff;
+      }
+      input.mono { font-size: 12px }
+      input:focus { outline: none; border-color: #74c0fc; box-shadow: 0 0 0 3px rgba(59,130,246,.12) }
+      button.act {
+        width: 100%; padding: 8px 12px; border: none; border-radius: 8px;
+        background: #0b7285; color: #fff; font-weight: 700; font-size: 13px;
+        cursor: pointer; font-family: inherit; margin-top: auto;
+      }
+      button.act:hover { background: #1098ad }
+      button.act.green { background: #2b8a3e } button.act.green:hover { background: #37a24a }
+      button.act:disabled { opacity: .55; cursor: wait }
+      .half { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+      .half .field { margin-bottom: 10px }
+      .grow { flex: 1 }
+      hr.sep { border: none; border-top: 1px solid #eef2f6; margin: 12px 0 }
+
+      section.assets h3 { font-size: 13px; color: #334155; border-inline-start: 4px solid #0b5cad; padding-inline-start: 10px; margin: 22px 0 10px }
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px }
+      .card { background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; padding: 14px }
+      .card.mine { border-color: #69db7c; background: linear-gradient(160deg,#fff,#f0fdf4) }
+      .card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap }
+      .card .id { font-weight: 800; color: #0b5cad; font-size: 15px }
+      .tag { font-size: 11px; border-radius: 999px; padding: 3px 10px; white-space: nowrap }
+      .tag.sale { background: #d3f9d8; color: #2b8a3e; font-weight: 700 }
+      .tag.nosale { background: #e9ecef; color: #868e96 }
+      .tag.child { background: #fff3bf; color: #854d0e }
+      .price { font-size: 17px; font-weight: 800; color: #2b8a3e; margin: 8px 0 4px }
+      .price.zero { color: #adb5bd; font-size: 13px }
+      .ownr { font-size: 11px; color: #656d76; overflow-wrap: anywhere }
+
+      .wchip { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px }
+      .wchip .addr { font-size: 11.5px; overflow-wrap: anywhere }
+      .ok { color: #2b8a3e; font-size: 12px; white-space: nowrap } .me { color: #0b7285; font-weight: 800 }
+      .bal { color: #24292f; font-weight: 700; white-space: nowrap }
+
+      .empty { color: #8b949e; font-size: 13px; padding: 10px; text-align: center }
+
+      @media (max-width: 760px) {
+        .grid { grid-template-columns: 1fr }
+        .panel.span2 { grid-column: auto }
+        .half { grid-template-columns: 1fr }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <header>
+        <h1>🏠 RES — بازار املاک روی بلاکچین</h1>
+        <div class="meta mono">Contract: <span id="contract_addr"></span></div>
+        <div style="margin-top:6px">
+          <a id="net_local" href="/">🏠 Anvil لوکال</a> ·
+          <a id="net_sepolia" href="/?rpc=https://eth-sepolia.g.alchemy.com/v2/JTm9UkT81jbryCO-y1F_xjyZRUmWwJnW&chain=11155111&chainName=Sepolia&contract=0x10B01918Fd967e77a7A39145804ef5138FBaDEb5">🌐 Sepolia</a>
+        </div>
+        <div class="badges">
+          <span class="badge role" id="role_badge"></span>
+          <div class="wdrop">
+            <button id="btn_connect" class="btn-connect" style="display:none">🦊 اتصال کیف پول</button>
+            <button id="wbtn" class="wbtn" style="display:none"></button>
+            <div class="wmenu" id="wmenu" style="left:auto;right:0">
+              <button id="w_switch"><span>🔄</span><span class="pname">تعویض کیف پول</span></button>
+              <button id="w_disconnect" class="danger"><span>⏏</span><span class="pname danger" style="color:#c92a2a">قطع اتصال</span></button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="tabs" id="tabs">
+        <button data-pane="oracle" id="tab_oracle">🛡 اوراکل</button>
+        <button data-pane="owner"  id="tab_owner">🔑 مالک</button>
+        <button data-pane="buyer"  id="tab_buyer">🛒 خریدار</button>
+      </nav>
+
+      <div class="pane" id="pane_oracle">
+        <div class="grid">
+          <div class="panel wide">
+            <h2>🔑 ولت‌های مجاز</h2>
+            <p class="hint">لیست از رویدادهای قرارداد ساخته میشود؛ ولت‌های حذف‌شده نمایش داده نمیشوند</p>
+            <div id="dev_wallets"><div class="empty">…</div></div>
+          </div>
+
+          <div class="panel"><h2>✅ افزودن ولت مجاز</h2>
+            <div class="field"><label>آدرس ولت</label><input id="add_eligible" class="mono" placeholder="0x..."></div>
+            <button id="add_to_eligible" class="act">افزودن</button></div>
+
+          <div class="panel"><h2>❌ حذف ولت مجاز</h2>
+            <div class="field"><label>آدرس ولت</label><input id="remove_eligible" class="mono" placeholder="0x..."></div>
+            <button id="remove_from_eligible" class="act">حذف</button></div>
+
+          <div class="panel"><h2>🔎 استعلام مجوز</h2>
+            <div class="field"><label>آدرس ولت</label><input id="eligible_address" class="mono" placeholder="0x..."></div>
+            <button id="check_eligiblety" class="act">بررسی</button></div>
+
+          <div class="panel span2"><h2>🏗 ضرب ملک جدید</h2>
+            <p class="hint">مالک باید واجد شرایط باشد؛ ملک با وضعیت «خارج از فروش» ضرب میشود</p>
+            <div class="half">
+              <div class="field"><label>قیمت (ETH)</label><input id="asset_price" type="number" step="any" min="0" placeholder="مثلاً 100"></div>
+              <div class="field"><label>مالک (واجد شرایط)</label><input id="asset_owner" class="mono" placeholder="0x..."></div>
+            </div>
+            <button id="add_asset" class="act green">ضرب ملک</button></div>
+
+          <div class="panel"><h2>👤 تغییر مستأجر</h2>
+            <div class="field"><label>شناسه ملک</label><input id="asset_renter_id" type="number" min="0"></div>
+            <div class="field"><label>مستأجر جدید (واجد شرایط)</label><input id="asset_renter_address_to" class="mono" placeholder="0x..."></div>
+            <button id="change_renter" class="act">ثبت مستأجر</button></div>
+
+          <div class="panel"><h2>♻️ بازتخصیص ملک</h2>
+            <p class="hint">ملک سوزانده‌شده (مثلاً بعد از merge) دوباره کامل به ولت داده میشود</p>
+            <div class="field"><label>شناسه ملک</label><input id="reissue_id" type="number" min="0"></div>
+            <div class="field"><label>مالک جدید (واجد شرایط)</label><input id="reissue_to" class="mono" placeholder="0x..."></div>
+            <button id="reissue_btn" class="act green">بازتخصیص</button></div>
+        </div>
+      </div>
+
+      <div class="pane" id="pane_owner">
+        <div class="grid">
+          <div class="panel"><h2>🏷 وضعیت فروش و قیمت</h2>
+            <div class="field"><label>شناسه ملک من</label><select id="fs_asset_id"></select></div>
+            <div class="field"><label>وضعیت</label>
+              <select id="fs_state"><option value="false" selected>🔴 خارج از فروش</option><option value="true">🟢 برای فروش</option></select></div>
+            <button id="set_for_sale" class="act">ثبت وضعیت</button>
+            <hr class="sep">
+            <div class="field"><label>قیمت عمومی جدید (ETH)</label><input id="assess_value" type="number" step="any" min="0" placeholder="مثلاً 80"></div>
+            <button id="change_price" class="act">ثبت قیمت برای ملک بالا</button></div>
+
+          <div class="panel"><h2>🎯 قیمت اختصاصی (تخفیف)</h2>
+            <p class="hint">فقط برای یک خریدار مشخص؛ باید کمتر از قیمت عمومی باشد. صفر = حذف.</p>
+            <div class="field"><label>شناسه ملک من</label><select id="cp_asset_id"></select></div>
+            <div class="field"><label>آدرس خریدار</label><input id="cp_buyer" class="mono" placeholder="0x..."></div>
+            <div class="field"><label>قیمت اختصاصی (ETH)</label><input id="cp_price" type="number" step="any" min="0" placeholder="خالی یا صفر = حذف تخفیف"></div>
+            <button id="set_custom_price" class="act">ثبت قیمت اختصاصی</button></div>
+
+          <div class="panel"><h2>🤝 انتقال مستقیم</h2>
+            <p class="hint">بدون پرداخت — برای ثبت معاملات انجام‌شده خارج از بلاکچین</p>
+            <div class="field"><label>شناسه ملک من</label><select id="td_asset_id"></select></div>
+            <div class="field"><label>گیرنده (واجد شرایط)</label><input id="td_to" class="mono" placeholder="0x..."></div>
+            <button id="transfer_direct" class="act green">انتقال بدون پرداخت</button></div>
+
+          <div class="panel span2"><h2>✂️ تفکیک مالکیت</h2>
+            <p class="hint">ملک والد باید کامل و تفکیک‌نشده باشد؛ جمع درصد‌ها = ۱۰۰</p>
+            <div class="field"><label>شناسه ملک والد</label><select id="asset_to_split"></select></div>
+            <div class="half">
+              <div class="field"><label>% سهام اول</label><input id="first_asset_percentage" type="number" min="1" max="99"></div>
+              <div class="field"><label>سهام‌دار اول</label><input id="first_asset_address" class="mono" placeholder="0x..."></div>
+            </div>
+            <div class="half">
+              <div class="field"><label>% سهام دوم</label><input id="second_asset_percentage" type="number" min="1" max="99"></div>
+              <div class="field"><label>سهام‌دار دوم</label><input id="second_asset_address" class="mono" placeholder="0x..."></div>
+            </div>
+            <button id="split" class="act green">تفکیک</button></div>
+
+          <div class="panel"><h2>🔗 ادغام</h2>
+            <p class="hint">همه فرزندان باید نزد شما جمع شده باشند</p>
+            <div class="field"><label>شناسه والد</label><input id="merge_asset_id" type="number" min="0" placeholder="مثلاً 2"></div>
+            <div class="grow"></div>
+            <button id="merge" class="act green">ادغام</button></div>
+        </div>
+      </div>
+
+      <div class="pane" id="pane_buyer">
+        <div class="grid">
+          <div class="panel wide"><h2>🛒 خرید ملک</h2>
+            <p class="hint">فقط ملک‌های «برای فروش». اگر برای شما قیمت اختصاصی تعیین شده باشد همان دریافت میشود؛ خالی گذاشتن مبلغ = پرداخت خودکار.</p>
+            <div class="half">
+              <div class="field"><label>شناسه ملک</label><input id="transfer_asset_id" type="number" min="0"></div>
+              <div class="field"><label>مبلغ ETH (خالی = خودکار)</label><input id="buy_value" type="number" step="any" min="0" placeholder="خودکار"></div>
+            </div>
+            <button id="transfer_asset" class="act green">خرید</button>
+            <hr class="sep">
+            <div class="half">
+              <div class="field"><label>استعلام مستأجر — شناسه ملک</label><input id="asset_renter" type="number" min="0"></div>
+              <div class="field" style="align-self:end"><button id="take_asset_renter" class="act">استعلام مستأجر</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="assets">
+        <h3>🏘 دارایی‌های من</h3>
+        <div id="assets" class="cards"></div>
+        <h3 style="border-color:#2b8a3e">🌍 همه دارایی‌ها</h3>
+        <div id="assets_total" class="cards"></div>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@4.16.0/dist/web3.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
