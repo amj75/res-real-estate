@@ -1,0 +1,6 @@
+contract,deploy_gas,runtime_bytes,network
+RESNFT (implementation),4999078,22761,anvil 1.5.1 (Prague)
+ERC1967Proxy + initialize(364),351576,141,anvil 1.5.1 (Prague)
+OracleCouncil,1358824,6069,anvil 1.5.1 (Prague)
+RESNFT (implementation, first deploy 0xBd35…4Ac5),35616602,22936,Sepolia (repriced schedule)
+ERC1967Proxy + initialize(364),1662556,141,Sepolia (repriced schedule)

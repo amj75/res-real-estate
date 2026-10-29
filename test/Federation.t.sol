@@ -277,10 +277,15 @@ contract FederationTest is Test {
         council.vote(pid);
     }
 
-    /// ارتقا و unpause هم فقط با ۲/۳ DAO
+    /// توقف سراسری، ارتقا و unpause فقط با ۲/۳ DAO؛ هیچ اوراکلی اختیار سراسری ندارد
     function test_upgrade_and_unpause_via_council() public {
         vm.prank(oTR);
+        vm.expectRevert();
         res.pause();
+        uint256 pid0 = _propose(oIR, abi.encodeCall(RESNFT.pause, ()));
+        vm.prank(oDE); council.vote(pid0);
+        vm.prank(oAE); council.vote(pid0);
+        assertTrue(res.paused());
         vm.prank(oTR);
         vm.expectRevert();
         res.unpause();

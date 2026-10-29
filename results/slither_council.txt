@@ -1,15 +1,15 @@
 Multiple frameworks detected: Foundry, solc, Solc-json. Using Foundry (highest priority). Use --compile-force-framework to override.
 INFO:Detectors:
 Detector: uninitialized-local
-RESNFT.merge(uint256).totalPercent (contracts/RESNFT.sol#442) is a local variable never initialized
-RESNFT.split(uint256,uint256[],address[]).total (contracts/RESNFT.sol#412) is a local variable never initialized
+RESNFT.merge(uint256).totalPercent (contracts/RESNFT.sol#444) is a local variable never initialized
+RESNFT.split(uint256,uint256[],address[]).total (contracts/RESNFT.sol#414) is a local variable never initialized
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
 INFO:Detectors:
 Detector: events-maths
-RESNFT.initialize(uint16) (contracts/RESNFT.sol#102-107) should emit an event for: 
-	- defaultJurisdiction = country (contracts/RESNFT.sol#105-106) 
-RESNFT.initializeV2(uint16) (contracts/RESNFT.sol#112-115) should emit an event for: 
-	- defaultJurisdiction = country (contracts/RESNFT.sol#113) 
+RESNFT.initialize(uint16) (contracts/RESNFT.sol#104-109) should emit an event for: 
+	- defaultJurisdiction = country (contracts/RESNFT.sol#107-108) 
+RESNFT.initializeV2(uint16) (contracts/RESNFT.sol#114-117) should emit an event for: 
+	- defaultJurisdiction = country (contracts/RESNFT.sol#115) 
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
 INFO:Detectors:
 Detector: calls-loop
@@ -45,6 +45,9 @@ Detector: timestamp
 OracleCouncil._vote(uint256,uint16) (contracts/OracleCouncil.sol#76-94) uses timestamp for comparisons
 	Dangerous comparisons:
 	- require(bool,string)(block.timestamp <= p.deadline,expired) (contracts/OracleCouncil.sol#81-82)
+RESNFT.userOf(uint256) (contracts/RESNFT.sol#500-505) uses timestamp for comparisons
+	Dangerous comparisons:
+	- u == address(0) || (exp != 0 && block.timestamp >= exp) (contracts/RESNFT.sol#504)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
 INFO:Detectors:
 Detector: assembly
@@ -53,17 +56,17 @@ OracleCouncil._vote(uint256,uint16) (contracts/OracleCouncil.sol#76-94) uses ass
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
 INFO:Detectors:
 Detector: costly-loop
-RESNFT.split(uint256,uint256[],address[]) (contracts/RESNFT.sol#393-430) has costly operations inside a loop:
-	- cid = assetCount ++ (contracts/RESNFT.sol#423)
-RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#143-161) has costly operations inside a loop:
-	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#151)
+RESNFT.split(uint256,uint256[],address[]) (contracts/RESNFT.sol#395-432) has costly operations inside a loop:
+	- cid = assetCount ++ (contracts/RESNFT.sol#425)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#145-163) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#153)
 	Calls stack containing the loop:
 		RESNFT.split(uint256,uint256[],address[])
 		ERC721Upgradeable._safeMint(address,uint256)
 		ERC721Upgradeable._safeMint(address,uint256,bytes)
 		ERC721Upgradeable._mint(address,uint256)
-RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#143-161) has costly operations inside a loop:
-	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#151)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#145-163) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#153)
 	Calls stack containing the loop:
 		RESNFT.merge(uint256)
 		ERC721Upgradeable._burn(uint256)
@@ -72,11 +75,11 @@ INFO:Detectors:
 Detector: low-level-calls
 Low level call in OracleCouncil._vote(uint256,uint16) (contracts/OracleCouncil.sol#76-94):
 	- (ok,ret) = address(res).call(p.data) (contracts/OracleCouncil.sol#90-91)
-Low level call in RESNFT.buy(uint256) (contracts/RESNFT.sol#466-482):
-	- (ok,None) = address(seller).call{value: price}() (contracts/RESNFT.sol#478-480)
+Low level call in RESNFT.buy(uint256) (contracts/RESNFT.sol#468-483):
+	- (ok,None) = address(seller).call{value: price}() (contracts/RESNFT.sol#480-482)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
 INFO:Detectors:
 Detector: unused-state
-RESNFT._legacyCustomPrice (contracts/RESNFT.sol#47-48) is never used in RESNFT (contracts/RESNFT.sol#30-497)
+RESNFT._legacyCustomPrice (contracts/RESNFT.sol#47-48) is never used in RESNFT (contracts/RESNFT.sol#30-520)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-state-variable
-INFO:Slither:contracts/OracleCouncil.sol analyzed (37 contracts with 102 detectors), 19 result(s) found
+INFO:Slither:contracts/OracleCouncil.sol analyzed (37 contracts with 102 detectors), 20 result(s) found

@@ -209,6 +209,7 @@ function bind() {
     const type = $id('prop_type').value, country = +$id('prop_country').value;
     const data = type === 'suspend' ? res.methods.suspend(country).encodeABI()
       : type === 'approve' ? res.methods.approveOracle(country, $id('prop_addr').value.trim()).encodeABI()
+      : type === 'pause' ? res.methods.pause().encodeABI()
       : res.methods.unpause().encodeABI();
     return send(c.methods.propose, data);
   });
@@ -424,6 +425,7 @@ function describe(data) {
       const d = web3.eth.abi.decodeParameters(['uint16', 'address'], args);
       return `تأیید ${d[1]} برای ${countryName(Number(d[0]))}`;
     }
+    if (is('pause()')) return 'توقف اضطراری کل بازار';
     if (is('unpause()')) return 'ازسرگیری بازار';
     if (is('upgradeToAndCall(address,bytes)')) return 'ارتقای قرارداد';
   } catch {}

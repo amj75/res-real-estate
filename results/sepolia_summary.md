@@ -1,6 +1,7 @@
 # Sepolia measurement (2026-10-29)
 
-- RESNFT v4 implementation (with ERC-4907 read interface): `0x481f3D03ce6BC417a8497f287492c9f0142CF09A` — upgraded via UUPS from `0xBd35De90Abf6a8135D6F7Fcac888834AcB244Ac5` (creation gas 35,616,602)
+- RESNFT v4 implementation used for this measurement (with ERC-4907 read interface): `0x481f3D03ce6BC417a8497f287492c9f0142CF09A`, upgraded via UUPS from `0xBd35De90Abf6a8135D6F7Fcac888834AcB244Ac5` (creation gas 35,616,602)
+- Current implementation: `0x08e52BD05F1dafc0B94aff5463eac706F30853f4`. It differs from the measured one only in `pause()`, which is now restricted to the owner (the council). Local gas of every measured function is identical between the two (`results/scalability.csv` reproduced byte for byte).
 - ERC1967 proxy (initialize(364)): `0xC84d7c19349500DFFe5FaacB5c407232D44401ab` (creation gas 1,662,556)
 - Blocks 12020286–12020377; 10 rounds; 71 transactions; gas price ≈ 0.05 gwei; RPC: ethereum-sepolia-rpc.publicnode.com
 - Latency = wall-clock time from submission until `cast send` returned the receipt (one confirmation)

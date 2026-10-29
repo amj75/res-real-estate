@@ -158,6 +158,8 @@ contract AdversarialTest is Test {
         res.upgradeToAndCall(address(impl2), "");
         vm.expectRevert();
         res.unpause();
+        vm.expectRevert(); // اوراکل یک کشور نمیتواند کل بازار را متوقف کند
+        res.pause();
         vm.stopPrank();
     }
 
@@ -264,7 +266,7 @@ contract AdversarialTest is Test {
     function test_pause_blocks_market() public {
         uint256 id = _mint(a, 1 ether);
         _list(a, id);
-        vm.prank(o1);
+        vm.prank(owner); // در استقرار واقعی: شورا با ۲/۳
         res.pause();
         vm.deal(b, 1 ether);
         vm.prank(b);

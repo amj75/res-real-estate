@@ -199,10 +199,10 @@ contract RESNFT is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable, R
         _suspend(country);
     }
 
-    /// توقف اضطراری کل بازار: هر اوراکل فعال یا مالک؛ ادامه فقط با مالک
-    function pause() external {
-        require(msg.sender == owner() || (countryOf[msg.sender] != 0 && !suspended[countryOf[msg.sender]]),
-            "not authorized");
+    /// توقف اضطراری کل بازار (مثلاً آسیب‌پذیری در قرارداد): فقط مالک = شورا با ۲/۳.
+    /// هر کشور فقط بازار خودش و ولت‌هایی را که احراز کرده متوقف میکند: suspendSelf (محافظ) یا suspend (شورا);
+    /// بازگشت با requestOracle + approveOracle. هیچ اوراکلی اختیار سراسری ندارد.
+    function pause() external onlyOwner {
         _pause();
     }
 
