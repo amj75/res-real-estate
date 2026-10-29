@@ -5,6 +5,9 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../contracts/RESNFT.sol";
 
+// مرجع پرونده ثبتی آزمایشی (در استقرار واقعی: keccak256(کشور، شماره پرونده، salt))
+bytes32 constant CASE_REF = keccak256("registry-case-0001");
+
 contract RESNFTTest is Test {
     RESNFT res;
     address oracle = makeAddr("oracle");
@@ -15,12 +18,12 @@ contract RESNFTTest is Test {
         vm.prank(oracle);
         RESNFT impl = new RESNFT();
         vm.prank(oracle);
-        res = RESNFT(payable(address(new ERC1967Proxy(address(impl), abi.encodeCall(RESNFT.initialize, ())))));
+        res = RESNFT(payable(address(new ERC1967Proxy(address(impl), abi.encodeCall(RESNFT.initialize, (uint16(364)))))));
         for (uint256 i; i < 3; ++i) {
             address[] memory who = new address[](1);
             who[0] = i == 0 ? seller : buyer;
             vm.prank(oracle);
-            res.addToEligibleList(who[0]);
+            res.addToEligibleList(who[0], CASE_REF);
         }
         // oracle مالک قرارداد است چون خودش دیپلوی کرده
         assertEq(res.oracleAddress(), oracle);
@@ -82,12 +85,20 @@ contract RESNFTTest is Test {
         // خریدار دیگر قیمت عمومی میپردازد
         address other = makeAddr("other");
         vm.prank(res.oracleAddress());
-        res.addToEligibleList(other);
-        vm.deal(other, 1 ether);
-        vm.prank(other);
+        res.addToEligibleList(other, CASE_REF);
+        assertEq(res.priceFor(id, buyer), 0.7 ether);
+        assertEq(res.priceFor(id, other), 1 ether);
+
+        // خریدار مشخص با قیمت عمومی نمیتواند بخرد (دقیقاً قیمت تخفیفی لازم است)
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert("wrong value");
         res.buy{value: 1 ether}(id);
 
-        assertEq(other.balance, 0);
+        vm.prank(buyer);
+        res.buy{value: 0.7 ether}(id);
+        assertEq(res.ownerOf(id), buyer);
+        assertEq(seller.balance, 0.7 ether);
     }
 
     /// انتقال مستقیم بدون پرداخت — ثبت معامله خارج از زنجیره
@@ -130,9 +141,9 @@ contract RESNFTTest is Test {
         address childA = makeAddr("childA");
         address childB = makeAddr("childB");
         vm.prank(oracle);
-        res.addToEligibleList(childA);
+        res.addToEligibleList(childA, CASE_REF);
         vm.prank(oracle);
-        res.addToEligibleList(childB);
+        res.addToEligibleList(childB, CASE_REF);
 
         uint256[] memory percents = new uint256[](2);
         percents[0] = 60;
@@ -176,7 +187,7 @@ contract RESNFTTest is Test {
         to[0] = buyer;
         to[1] = makeAddr("x");
         vm.prank(oracle);
-        res.addToEligibleList(to[1]);
+        res.addToEligibleList(to[1], CASE_REF);
         vm.prank(seller);
         vm.expectRevert("percents must sum to parent");
         res.split(id, percents, to);
@@ -204,22 +215,22 @@ contract RESNFTTest is Test {
         uint256 id = _mintFor(seller, 1 ether);
         vm.prank(seller);
         vm.expectRevert("only oracle");
-        res.changeRenter(id, buyer);
+        res.changeRenter(id, buyer, CASE_REF);
         vm.prank(oracle);
-        res.changeRenter(id, buyer);
+        res.changeRenter(id, buyer, CASE_REF);
         assertEq(res.renterOf(id), buyer);
     }
 
     function test_addAsset_only_oracle() public {
         vm.prank(seller);
         vm.expectRevert("only oracle");
-        res.addAsset(1 ether, seller);
+        res.addAsset(1 ether, seller, CASE_REF);
     }
 
     // ---------- helper ----------
     function _mintFor(address to, uint256 price) internal returns (uint256) {
         vm.prank(oracle);
-        return res.addAsset(price, to);
+        return res.addAsset(price, to, CASE_REF);
     }
 
         // ---------- v3: گیت انتقال، اجاره زمانی، reissue تمیز ----------
@@ -258,7 +269,7 @@ contract RESNFTTest is Test {
             uint64 start = 1_700_000_000;
             uint64 expiry = start + 30 days;
             vm.prank(oracle);
-            res.setRent(id, buyer, start, expiry);
+            res.setRent(id, buyer, start, expiry, CASE_REF);
     
             (,,,,,, address renter, uint64 rs, uint64 re) = res.getAsset(id);
             assertEq(renter, buyer);
@@ -268,20 +279,48 @@ contract RESNFTTest is Test {
             // انقضا قبل از شروع → رد
             vm.prank(oracle);
             vm.expectRevert("expiry must be after start");
-            res.setRent(id, buyer, expiry, start);
+            res.setRent(id, buyer, expiry, start, CASE_REF);
     
             // مستأجر غیرمجاز → رد
             vm.prank(oracle);
             vm.expectRevert("renter not eligible");
-            res.setRent(id, makeAddr("x"), start, expiry);
+            res.setRent(id, makeAddr("x"), start, expiry, CASE_REF);
         }
     
+    /// ERC-4907 (بخش خواندن): userOf/userExpires + رویداد UpdateUser در هر تغییر حق استفاده
+        function test_erc4907_user_view_and_event() public {
+            uint256 id = _mintFor(seller, 1 ether);
+            assertEq(res.userOf(id), seller, "default user = owner");
+            assertEq(res.userExpires(id), 0);
+
+            uint64 start = uint64(block.timestamp);
+            uint64 expiry = start + 30 days;
+            vm.expectEmit(true, true, false, true, address(res));
+            emit RESNFT.UpdateUser(id, buyer, expiry);
+            vm.prank(oracle);
+            res.setRent(id, buyer, start, expiry, CASE_REF);
+            assertEq(res.userOf(id), buyer);
+            assertEq(res.userExpires(id), expiry);
+
+            // پس از انقضا حق استفاده به مالک برمیگردد
+            vm.warp(expiry);
+            assertEq(res.userOf(id), seller, "expired lease -> owner");
+
+            // انتقال: کاربر = مالک جدید، بدون انقضا
+            vm.expectEmit(true, true, false, true, address(res));
+            emit RESNFT.UpdateUser(id, buyer, 0);
+            vm.prank(seller);
+            res.transferFrom(seller, buyer, id);
+            assertEq(res.userOf(id), buyer);
+            assertEq(res.userExpires(id), 0);
+        }
+
     /// لغو اجاره با renter=0 — دوره هم پاک میشود
         function test_set_rent_cancel() public {
             uint256 id = _mintFor(seller, 1 ether);
             vm.startPrank(oracle);
-            res.setRent(id, buyer, 1_700_000_000, 1_700_000_000 + 1 days);
-            res.setRent(id, address(0), 0, 0);
+            res.setRent(id, buyer, 1_700_000_000, 1_700_000_000 + 1 days, CASE_REF);
+            res.setRent(id, address(0), 0, 0, CASE_REF);
             vm.stopPrank();
             (,,,,,, address renter,,) = res.getAsset(id);
             assertEq(renter, address(0));
@@ -291,7 +330,7 @@ contract RESNFTTest is Test {
         function test_transfer_clears_rent_period() public {
             uint256 id = _mintFor(seller, 1 ether);
             vm.prank(oracle);
-            res.setRent(id, seller, 1_700_000_000, 1_700_000_000 + 1 days);
+            res.setRent(id, seller, 1_700_000_000, 1_700_000_000 + 1 days, CASE_REF);
             vm.prank(seller);
             res.transferFrom(seller, buyer, id);
             (,,,,,,, uint64 rs,) = res.getAsset(id);
@@ -309,9 +348,9 @@ contract RESNFTTest is Test {
             // به ولت دیگرِ واجد شرایط بازتخصیص
             address newOwner = makeAddr("newOwner");
             vm.prank(oracle);
-            res.addToEligibleList(newOwner);
+            res.addToEligibleList(newOwner, CASE_REF);
             vm.prank(oracle);
-            res.reissueAsset(id, newOwner);
+            res.reissueAsset(id, newOwner, CASE_REF);
     
             assertEq(res.ownerOf(id), newOwner);
             (uint256 price, bool forSale,,,,,,, ) = res.getAsset(id);
@@ -321,30 +360,33 @@ contract RESNFTTest is Test {
 
     // ---------- امنیت: reentrancy عملی + initialize + self-buy ----------
 
-    /// حمله reentrancy واقعی: مهاجم خودش فروشنده است و در هنگام دریافت پول به buy دوباره
-    /// حمله میکند. قرارداد سالم باید بگذارد پول را بگیرد ولی خرید دوم را رد کند
-    /// (nonReentrant + effects قبل از interactions)
+    /// حمله reentrancy واقعی: مهاجم فروشنده است و هنگام دریافت پول، buy را روی ملک دیگری
+    /// که هنوز برای فروش است دوباره صدا میزند. خطای برگشتی باید دقیقاً خطای ReentrancyGuard باشد —
+    /// بدون nonReentrant این خرید دوم موفق میشد و این تست شکست میخورد.
     function test_buy_reentrancy_blocked() public {
         Attacker attacker = new Attacker(res);
         address legitBuyer = makeAddr("legitBuyer");
         vm.startPrank(oracle);
-        res.addToEligibleList(address(attacker));   // مهاجم هم باید مجاز باشد تا mint شود
-        res.addToEligibleList(address(legitBuyer));
+        res.addToEligibleList(address(attacker), CASE_REF);   // مهاجم هم باید مجاز باشد تا mint شود
+        res.addToEligibleList(address(legitBuyer), CASE_REF);
         vm.stopPrank();
 
-        // توکن مستقیم به قرارداد مهاجم (فروشنده آینده)
-        uint256 id = _mintFor(address(attacker), 1 ether);
+        uint256 id = _mintFor(address(attacker), 1 ether);   // فروشنده = مهاجم
+        uint256 other = _mintFor(seller, 1 ether);           // هدف خرید تودرتو
         attacker.setForSale(id);
+        vm.prank(seller);
+        res.setForSale(other, true);
+        attacker.setTarget(other);
         vm.deal(legitBuyer, 10 ether);
 
-        // خریدار مشروع میخرد → پول به receiveِ مهاجم میرسد → او reenter میکند
         vm.prank(legitBuyer);
         res.buy{value: 1 ether}(id);
 
-        // buy دوم داخل receive باید revert کرده باشد (nonReentrant) — else the tx would have reverted
         assertEq(res.ownerOf(id), legitBuyer);
+        assertEq(res.ownerOf(other), seller, "nested buy must not succeed");
         assertEq(attacker.buyAttempts(), 1, "reentrancy call attempted exactly once");
-        assertEq(address(attacker).balance, 1 ether, "seller got paid once, no double-spend");
+        assertEq(attacker.lastError(), ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        assertEq(address(attacker).balance, 1 ether, "seller got paid once");
     }
 
     /// خرید خود-دارایی مسدود است
@@ -360,7 +402,7 @@ contract RESNFTTest is Test {
     /// initialize دوباره روی پروکسی نمیتواند اجرا شود (initializer guard)
     function test_reinitialize_blocked() public {
         vm.expectRevert();
-        res.initialize();
+        res.initialize(364);
     }
 }
 
@@ -373,6 +415,7 @@ contract Attacker is IERC721Receiver {
     RESNFT immutable res;
     uint256 public buyAttempts;
     uint256 public target;
+    bytes4 public lastError;
 
     constructor(RESNFT r) { res = r; }
 
@@ -384,20 +427,19 @@ contract Attacker is IERC721Receiver {
         res.setForSale(assetId, true);
     }
 
-    function attack(uint256 assetId, address buyer) external payable {
+    function setTarget(uint256 assetId) external {
         target = assetId;
-        res.buy{value: 1 ether}(assetId); // خرید اول — اینجا ما «خریدار» هستیم؛ باید توکن قبلاً به ما فروخته شده باشد
     }
 
     // فروشنده‌ای که در حین خریدِ توکنش reenter میکند
     receive() external payable {
         if (msg.sender == address(res) && buyAttempts == 0) {
             buyAttempts++;
-            // حمله مجدد: buy همان توکنِ فروخته‌شده — باید revert شود (nonReentrant)
-            (bool ok, ) = address(res).call{value: 1 ether}(
+            (bool ok, bytes memory ret) = address(res).call{value: 1 ether}(
                 abi.encodeWithSelector(res.buy.selector, target)
             );
             require(!ok, "reentrancy must be blocked");
+            lastError = bytes4(ret);
         }
     }
 }

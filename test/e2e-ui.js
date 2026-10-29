@@ -60,6 +60,12 @@ function makeEnv(mockEth, state) {
       getAsset: i => { const a = assets[i]; return [a.price, a.forSale, a.parent, a.percent, a.split, a.owner, a.renter]; },
       ownerOf: i => assets[i].owner,
       oracleAddress: () => state.oracle,
+      // v4: نقش اوراکل از countryOf/suspended (کشور 364)؛ حوزه همه ملک‌ها = 364
+      countryOf: w => (w || '').toLowerCase() === state.oracle.toLowerCase() ? 364 : 0,
+      suspended: () => false,
+      jurisdictionOf: () => 364,
+      registrarOf: () => 364,
+      localFrozen: () => false,
       balanceOf: w => assets.filter(x => x.owner.toLowerCase() === (w || '').toLowerCase()).length,
       isEligible: w => state.eligible.includes((w || '').toLowerCase()),
       buy: id => ({ send: async ({ from, value }) => {

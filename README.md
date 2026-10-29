@@ -1,49 +1,115 @@
-# RES — Real Estate NFT Platform
+# RES — Real Estate NFT Platform (v4)
 
-Real-estate transactions on Ethereum: each property is an NFT, traded atomically through a UUPS-upgradeable smart contract with oracle-gated eligibility.
+Borderless real-estate transactions on Ethereum. Each property, and each fractional share of a property, is an ERC-721 token. Every country's land registry runs its own **oracle** (a multisig wallet), and the oracles together form a DAO, the **OracleCouncil**, that governs the contract.
 
-**Live demo:** https://res-real-estate.vercel.app (Sepolia testnet)
-**Proxy:** `0x10B01918Fd967e77a7A39145804ef5138FBaDEb5`
+This repository accompanies the manuscript *"Reengineering Real Estate Transactions Through Blockchain-Based Tokenization and Smart Contracts"* (A. Mohammadjani, M. Bastam, E. Ataie — University of Mazandaran). Tag `v4.0.0` is the exact code and data reported in the revised manuscript.
 
-## Structure
+## Design in brief
+
+- **Federated oracles.** Countries are identified by their ISO 3166 numeric code (e.g. 364 = Iran, 276 = Germany).
+  - Each country's oracle is its land registry's multisig. It verifies identities, mints property tokens, executes court orders and records leases, and does so only within its own jurisdiction.
+  - A buyer verified by one country can buy property in any other country.
+- **DAO governance (`OracleCouncil`).** The council owns the contract. Every decision needs two thirds of the active member countries and takes effect immediately.
+  - Decisions: suspending a compromised oracle, admitting a country, replacing an oracle address, unpausing and upgrading.
+  - The country being decided on does not vote.
+  - A new or replacement oracle address must first request membership itself (`requestOracle`). Members verify it off-chain before approving.
+- **Compromise detection.**
+  - Every oracle action carries a mandatory registry case reference, `caseRef = keccak256(country, caseNo, salt)`, and emits `OracleAction`. An on-chain action with no matching registry case indicates a compromised key.
+  - Each country has a guardian key that can only suspend its own oracle (`suspendSelf`).
+- **Identity binding.** `registerWallet` requires a signature from the wallet itself (EIP-191 / ERC-1271, replay-protected by nonce and chain id) and stores only a hashed identity commitment. No personal data is stored on-chain.
+- **Freezes by legal order.**
+  - Global: by the wallet's registering country (`removeFromEligibleList`).
+  - Local: each country for its own jurisdiction (`freezeLocal`).
+- **Atomic purchase.** `buy()` checks eligibility and the exact price, transfers the token and pays the seller in one transaction.
+  - There is no escrow, and an underpayment or overpayment reverts.
+  - The exact-price rule also defeats seller front-running.
+- **Split / merge.** A whole property can be split into 2–20 percentage shares and merged back by whoever holds all the shares. Ownership always sums to exactly 100%.
+- **Right of use.** Stored on the property token itself, following the ERC-4907 pattern (`userOf`, `userExpires`, `UpdateUser`). It is set only by the jurisdiction's oracle (`setRent`, `changeRenter`).
+- **Single transfer gate.** Every token movement passes through `_update`, which enforces eligibility, freezes, suspension and pause, and clears listings, discounts and leases.
+- **UUPS upgradeable.** Storage layout is append-only. The v3 → v4 upgrade path (`initializeV2`) is tested.
+
+## Repository layout
 
 ```
-contracts/   RESNFT.sol — ERC-721 + UUPS proxy, atomic buy(), split/merge, on-chain rent
-script/      Deploy.s.sol — Foundry deployment script
-test/        RESNFT.t.sol (24 unit) · LiveChain.t.sol (3 live-chain) · e2e-ui.js (10 e2e)
-frontend/    Static web UI (web3.js) — index.html, app.js, server.js, abi.json
+contracts/   RESNFT.sol (ERC-721 + UUPS) · OracleCouncil.sol (DAO, owner of RESNFT)
+test/        RESNFT · Adversarial · Federation · Invariant · Scalability · LiveChain (Foundry)
+             helpers/MultisigOracle.sol (minimal k-of-n multisig standing in for Safe)
+             legacy/RESNFTv3.sol (previous version, for upgrade and gas comparison)
+             e2e-ui.js (UI end-to-end test with a mocked wallet)
+script/      Deploy.s.sol (Deploy · Upgrade · Federation) · sepolia_bench.sh (testnet latency)
+app/         Web UI (web3.js v4, MetaMask) · index.html · app.js · server.js · ABIs
+results/     Raw evaluation data reported in the paper
 ```
 
-## Quick start
+## Build and test
+
+Requires [Foundry](https://getfoundry.sh) (tested with forge 1.5.1) and Node.js (for the UI test).
 
 ```bash
-# contract — build & test
-forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts OpenZeppelin/openzeppelin-contracts-upgradeable
-forge build && forge test
-
-# deploy to a local node
-anvil
-forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
-
-# frontend
-cd frontend && node server.js   # http://localhost:3000
+git clone https://github.com/amj75/res-real-estate.git && cd res-real-estate
+git submodule update --init      # dependencies pinned to exact commits (no --recursive needed)
+forge build
+forge test                       # 78 tests; the 3 LiveChain tests are skipped without a local node
+node test/e2e-ui.js              # UI end-to-end test (10 checks)
 ```
 
-The frontend talks directly to the chain via RPC — no backend. Switch network (local Anvil / Sepolia) from the header.
+Dependencies are git submodules pinned to the exact commits used for the paper:
 
-## Key features
+- forge-std `48014d1`
+- OpenZeppelin Contracts `eca4003` (5.7.0 development line)
+- OpenZeppelin Contracts Upgradeable `f8fc282`
 
-- **Atomic purchase** — payment and NFT transfer in one transaction (ReentrancyGuard)
-- **Oracle-gated eligibility** — only whitelisted wallets can trade (anti-fraud)
-- **Split / merge** — divide a property NFT into up to 20 shares and merge them back
-- **On-chain rent** — rental periods registered per property
-- **Custom pricing** — per-buyer discounted price
-- **Reissue** — oracle can void and re-mint a stolen NFT
-- **UUPS upgradeable** — storage-safe upgrades
+With these, the gas benchmark below reproduces `results/scalability.csv` exactly. The bytecode of the Sepolia implementation matches a local build except for the embedded self-address immutable.
 
-## Tests
+Gas benchmark (each call measured as a separate transaction with cold storage):
 
-37 tests total (24 unit + 3 live-chain + 10 end-to-end), all passing. Live-chain tests run against the deployed Sepolia proxy.
+```bash
+forge test --match-contract Scalability -vv --isolate | grep -o "BENCH,.*"
+```
 
----
-*A. Mohammadjani, M. Bastam, E. Ataie — "A Blockchain-Driven Paradigm for Improving Real Estate Transaction Efficiency and Reliability"*
+## Run locally
+
+```bash
+anvil
+DEPLOYER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 forge script script/Deploy.s.sol:Deploy \
+  --rpc-url http://localhost:8545 --broadcast \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80   # anvil test key #0
+cd app && node server.js         # http://localhost:3000
+```
+
+The UI talks to the chain directly; there is no backend. To use another network or contract, pass URL parameters: `?rpc=<url>&chain=<id>&contract=<proxy>&deployBlock=<n>`.
+
+## Sepolia deployment (evaluation)
+
+| | Address |
+|---|---|
+| Proxy (RESNFT) | `0xC84d7c19349500DFFe5FaacB5c407232D44401ab` |
+| Implementation | `0x481f3D03ce6BC417a8497f287492c9f0142CF09A` |
+
+Sepolia currently charges about 1,540 gas per byte of deployed code. The forge script's local simulation underestimates this, so deploy the implementation with an explicit limit, for example `forge create contracts/RESNFT.sol:RESNFT --gas-limit 37000000`. Then deploy an `ERC1967Proxy` with `initialize(uint16 country)`.
+
+Testnet latency benchmark (writes `results/sepolia_latency.csv`; `FROM=<round>` resumes):
+
+```bash
+RPC_URL=... PROXY=... ORACLE_PK=... BUYER_PK=... ROUNDS=10 bash script/sepolia_bench.sh
+```
+
+Federation setup: each country's Safe first sends `requestOracle(country, guardian)`. Then run:
+
+```bash
+PROXY=... COUNTRIES=364,276 COUNTRY_ORACLES=<safe364>,<safe276> forge script script/Deploy.s.sol:Federation ...
+```
+
+This approves the founding members and transfers ownership to a new `OracleCouncil`.
+
+## Results (`results/`)
+
+| File | Content |
+|---|---|
+| `scalability.csv` | Full transaction gas per function for N = 10 … 3000 properties/wallets, v3 vs v4 |
+| `sepolia_latency.csv`, `sepolia_summary.md` | Sepolia measurement: 10 rounds, 71 transactions, confirmation latency and gas |
+| `slither_v4.txt`, `slither_council.txt`, `slither_v3.txt`, `slither_version.txt` | Slither static analysis output |
+
+## Earlier version
+
+The previous public version (v3, single oracle) is commit `5614ce4`. Its Sepolia deployment is at `0x10B01918Fd967e77a7A39145804ef5138FBaDEb5`, and the demo at https://res-real-estate.vercel.app still runs against it.

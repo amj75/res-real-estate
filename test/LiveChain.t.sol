@@ -7,6 +7,9 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import "../contracts/RESNFT.sol";
 
+// مرجع پرونده ثبتی آزمایشی (در استقرار واقعی: keccak256(کشور، شماره پرونده، salt))
+bytes32 constant CASE_REF = keccak256("registry-case-0001");
+
 contract LiveChainTest is Test {
     RESNFT res = RESNFT(payable(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512));
 
@@ -17,7 +20,8 @@ contract LiveChainTest is Test {
 
     modifier live() {
         // forge داخلی هم chainid=31337 میدهد؛ ملاک واقعی: کد قرارداد روی این آدرس هست؟
-        if (address(res).code.length == 0) return; // بدون anvil زنده: تست‌ها بی‌صدا رد میشوند
+        // بدون anvil زنده: تست «skipped» گزارش میشود، نه pass جعلی
+        if (address(res).code.length == 0) { vm.skip(true); return; }
         _;
     }
 
@@ -27,7 +31,7 @@ contract LiveChainTest is Test {
     function test_live_buy_with_existing_wallet() public live {
         // اوراکل ملک جدید میسازد، به نام خودش، 1 ETH، برای فروش
         vm.startPrank(ORACLE);
-        res.addAsset(1 ether, ORACLE);
+        res.addAsset(1 ether, ORACLE, CASE_REF);
         uint256 id = res.assetCount() - 1;
         res.setForSale(id, true);
         vm.stopPrank();
@@ -49,7 +53,7 @@ contract LiveChainTest is Test {
     /// همان ولت نمیتواند خارج از فروش بخرد (گیت forSale روی زنجیره زنده)
     function test_live_buy_rejected_when_not_for_sale() public live {
         vm.startPrank(ORACLE);
-        res.addAsset(2 ether, ORACLE); // پیش‌فرض: خارج از فروش
+        res.addAsset(2 ether, ORACLE, CASE_REF); // پیش‌فرض: خارج از فروش
         uint256 id = res.assetCount() - 1;
         vm.stopPrank();
 
@@ -60,7 +64,7 @@ contract LiveChainTest is Test {
     }
 
     /// مالکیت دارایی‌های seed نباید توسط تست‌ها خراب شود — فقط خواندنی
-    function test_live_seed_state_intact() public view live {
+    function test_live_seed_state_intact() public live {
         assertGe(res.assetCount(), 4); // حداقل ۴ ملک seed دیپلوی
         // #0 و #1 نزد اوراکل، #2/#3 نزد ولت‌های دستی seed
         assertEq(res.ownerOf(0), ORACLE);

@@ -1,0 +1,40 @@
+Multiple frameworks detected: Foundry, solc, Solc-json. Using Foundry (highest priority). Use --compile-force-framework to override.
+INFO:Detectors:
+Detector: uninitialized-local
+RESNFT.split(uint256,uint256[],address[]).total (contracts/RESNFT.sol#412) is a local variable never initialized
+RESNFT.merge(uint256).totalPercent (contracts/RESNFT.sol#442) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: events-maths
+RESNFT.initialize(uint16) (contracts/RESNFT.sol#102-107) should emit an event for: 
+	- defaultJurisdiction = country (contracts/RESNFT.sol#105-106) 
+RESNFT.initializeV2(uint16) (contracts/RESNFT.sol#112-115) should emit an event for: 
+	- defaultJurisdiction = country (contracts/RESNFT.sol#113) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
+INFO:Detectors:
+Detector: costly-loop
+RESNFT.split(uint256,uint256[],address[]) (contracts/RESNFT.sol#393-430) has costly operations inside a loop:
+	- cid = assetCount ++ (contracts/RESNFT.sol#423)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#143-161) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#151)
+	Calls stack containing the loop:
+		RESNFT.split(uint256,uint256[],address[])
+		ERC721Upgradeable._safeMint(address,uint256)
+		ERC721Upgradeable._safeMint(address,uint256,bytes)
+		ERC721Upgradeable._mint(address,uint256)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#143-161) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#151)
+	Calls stack containing the loop:
+		RESNFT.merge(uint256)
+		ERC721Upgradeable._burn(uint256)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#costly-operations-inside-a-loop
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in RESNFT.buy(uint256) (contracts/RESNFT.sol#466-482):
+	- (ok,None) = address(seller).call{value: price}() (contracts/RESNFT.sol#478-480)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Detectors:
+Detector: unused-state
+RESNFT._legacyCustomPrice (contracts/RESNFT.sol#47-48) is never used in RESNFT (contracts/RESNFT.sol#30-497)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-state-variable
+INFO:Slither:contracts/RESNFT.sol analyzed (36 contracts with 102 detectors), 9 result(s) found

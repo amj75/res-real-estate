@@ -1,0 +1,36 @@
+INFO:Detectors:
+Detector: uninitialized-local
+RESNFT.merge(uint256).totalPercent (contracts/RESNFT.sol#232) is a local variable never initialized
+RESNFT.split(uint256,uint256[],address[]).total (contracts/RESNFT.sol#202) is a local variable never initialized
+RESNFT.merge(uint256).found (contracts/RESNFT.sol#231) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: events-access
+RESNFT.initialize() (contracts/RESNFT.sol#54-58) should emit an event for: 
+	- oracleAddress = msg.sender (contracts/RESNFT.sol#57) 
+RESNFT.setOracle(address) (contracts/RESNFT.sol#83-86) should emit an event for: 
+	- oracleAddress = newOracle (contracts/RESNFT.sol#85) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-access-control
+INFO:Detectors:
+Detector: costly-loop
+RESNFT.split(uint256,uint256[],address[]) (contracts/RESNFT.sol#193-224) has costly operations inside a loop:
+	- cid = assetCount ++ (contracts/RESNFT.sol#212)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#71-80) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#77)
+	Calls stack containing the loop:
+		RESNFT.split(uint256,uint256[],address[])
+		ERC721Upgradeable._safeMint(address,uint256)
+		ERC721Upgradeable._safeMint(address,uint256,bytes)
+		ERC721Upgradeable._mint(address,uint256)
+RESNFT._update(address,uint256,address) (contracts/RESNFT.sol#71-80) has costly operations inside a loop:
+	- delete rentPeriod[tokenId] (contracts/RESNFT.sol#77)
+	Calls stack containing the loop:
+		RESNFT.merge(uint256)
+		ERC721Upgradeable._burn(uint256)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#costly-operations-inside-a-loop
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in RESNFT.buy(uint256) (contracts/RESNFT.sol#256-281):
+	- (ok,None) = address(seller).call{value: price}() (contracts/RESNFT.sol#278)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Slither:contracts/RESNFT.sol analyzed (30 contracts with 102 detectors), 9 result(s) found
