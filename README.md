@@ -33,11 +33,11 @@ This repository accompanies the manuscript *"Reengineering Real Estate Transacti
 
 ```
 contracts/   RESNFT.sol (ERC-721 + UUPS) · OracleCouncil.sol (DAO, owner of RESNFT)
-test/        RESNFT · Adversarial · Federation · Invariant · Scalability · Cost · LiveChain (Foundry)
+test/        RESNFT · Adversarial · Federation · Invariant · InvariantFederation · Scalability · Cost · CouncilScale · LiveChain (Foundry)
              helpers/MultisigOracle.sol (minimal k-of-n multisig standing in for Safe)
              legacy/RESNFTv3.sol (previous version, for upgrade and gas comparison)
              e2e-ui.js (UI end-to-end test with a mocked wallet)
-script/      Deploy.s.sol (Deploy · Upgrade · Federation) · sepolia_bench.sh (testnet latency)
+script/      Deploy.s.sol (Deploy · Upgrade · Federation) · sepolia_bench.sh (testnet latency) · sepolia_finality.sh (time to finality)
 app/         Web UI (web3.js v4, MetaMask) · index.html · app.js · server.js · ABIs
 results/     Raw evaluation data reported in the paper
 ```
@@ -50,7 +50,7 @@ Requires [Foundry](https://getfoundry.sh) (tested with forge 1.5.1) and Node.js 
 git clone https://github.com/amj75/res-real-estate.git && cd res-real-estate
 git submodule update --init      # dependencies pinned to exact commits (no --recursive needed)
 forge build
-forge test                       # 79 tests; the 3 LiveChain tests are skipped without a local node
+forge test                       # 85 tests; the 3 LiveChain tests are skipped without a local node
 node test/e2e-ui.js              # UI end-to-end test (10 checks)
 ```
 
@@ -60,7 +60,7 @@ Dependencies are git submodules pinned to the exact commits used for the paper:
 - OpenZeppelin Contracts `eca4003` (5.7.0 development line)
 - OpenZeppelin Contracts Upgradeable `f8fc282`
 
-With these, the gas benchmark below reproduces `results/scalability.csv` exactly. The bytecode of the Sepolia implementation matches a local build except for the embedded self-address immutable.
+With these, the gas benchmarks below reproduce `results/scalability.csv`, `results/cost.csv` and `results/council_scale.csv` exactly. The bytecode of the Sepolia implementation matches a local build except for the embedded self-address immutable.
 
 Gas benchmark (each call measured as a separate transaction with cold storage):
 
@@ -68,6 +68,7 @@ Gas benchmark (each call measured as a separate transaction with cold storage):
 forge test --match-contract Scalability -vv --isolate | grep -o "BENCH,.*"                 # results/scalability.csv
 NO_DIFF=true forge test --match-contract Cost -vv --isolate | grep -o "COST,.*"   # gas column of results/cost.csv
 forge test --match-contract Cost -vv --isolate | grep -o "COST,.*"                # new/freed slot columns of results/cost.csv
+forge test --match-contract CouncilScale -vv --isolate | grep -o "COUNCIL,.*"     # results/council_scale.csv
 ```
 
 The cost benchmark runs twice because recording state diffs warms storage slots: gas comes from the `NO_DIFF=true` run, slot counts from the other.
@@ -116,10 +117,12 @@ This approves the founding members and transfers ownership to a new `OracleCounc
 |---|---|
 | `scalability.csv` | Full transaction gas per function for N = 10 … 3000 properties/wallets, v3 vs v4 |
 | `cost.csv` | Gas, new and freed storage slots for 27 functions (steady state) |
+| `council_scale.csv` | Gas of a council decision (proposal, each vote, total) with 3 … 100 member countries |
 | `deployment_gas.csv` | Deployment gas of each contract (local Prague and Sepolia) |
 | `sepolia_latency.csv`, `sepolia_summary.md` | Sepolia measurement: 10 rounds, 71 transactions, confirmation latency and gas |
+| `sepolia_finality.csv` | Sepolia: time to inclusion and to finality for 10 transactions (`script/sepolia_finality.sh`) |
 | `slither_v4.txt`, `slither_council.txt`, `slither_v3.txt`, `slither_version.txt` | Slither static analysis output |
 
 ## Earlier version
 
-The previous public version (v3, single oracle) is commit `5614ce4`. Its Sepolia deployment is at `0x10B01918Fd967e77a7A39145804ef5138FBaDEb5`, and the demo at https://res-real-estate.vercel.app still runs against it.
+The previous public version (v3, single oracle) is commit `5614ce4`. Its Sepolia deployment is at `0x10B01918Fd967e77a7A39145804ef5138FBaDEb5`. The demo at https://res-real-estate.vercel.app now runs v4 against the proxy `0xC84d7c19349500DFFe5FaacB5c407232D44401ab`.
